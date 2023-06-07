@@ -69,7 +69,7 @@ app.post('/api/deposit', async (req, res) => {
 
 app.post('/api/callback', async (req, res) => {
     try {
-        const callback = await axios.post("http://localhost/api/callback", {
+        const callback = await axios.post("https://payment-consult.onrender.com/api/callback", {
             txn_id: contain.txn_id,
             merchantref: contain.merchantref,
             amount: contain.amount,
