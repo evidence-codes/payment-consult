@@ -26,9 +26,7 @@ app.post('/api/deposit', async (req, res) => {
         ccexpyear,
         cvv,
         merchantref,
-        userip,
-        callbackurl,
-        returnurl } = req.body;
+        userip } = req.body;
 
     try {
         const deposit = await axios.post("https://api.thepaymentconsultant.com/api/deposit/initiate", {
@@ -51,8 +49,8 @@ app.post('/api/deposit', async (req, res) => {
             cvv,
             merchantref,
             userip,
-            callbackurl,
-            returnurl
+            callbackurl: "https://payment-consult.onrender.com/api/callback",
+            returnurl: "https://amconcept.org"
         }, {
             headers: {
                 'Content-Type': 'application/json'
