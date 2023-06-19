@@ -7,7 +7,7 @@ const crypto = require("crypto")
 require("dotenv").config();
 const port = process.env.PORT || 5050
 
-
+app.use(express.json())
 // Endpoint to receive incoming data
 app.post('/deposit', (req, res) => {
     // Handle the incoming data
