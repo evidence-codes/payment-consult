@@ -69,8 +69,8 @@ app.post('/deposit', (req, res) => {
     // Function to initiate a deposit
     function initiateDeposit(data) {
         const url = 'https://api.thepaymentconsultant.com/api/deposit/initiate';
-        const secret = 'your_secret';
-        const tpcCode = 'your_tpc_code';
+        const secret = process.env.Secret;
+        const tpcCode = process.env.TPC_CODE;
 
         // Generate TPC-HASH
         const tpcHash = generateTPCHash(
@@ -125,25 +125,70 @@ app.post('/deposit', (req, res) => {
     res.status(200).json({ status: 'success' });
 });
 
-// app.post('/api/callback', async (req, res) => {
-//     try {
-//         const callback = await axios.post("https://payment-consult.onrender.com/api/callback", {
-//             txn_id: contain.txn_id,
-//             merchantref: contain.merchantref,
-//             amount: contain.amount,
-//             txn_status: contain.txn_status,
-//             hash_key: process.env.TPC_CODE + contain.merchantref + contain.txn_id + contain.amount + process.env.Secret
-//         },
-//             {
-//                 headers: {
-//                     'Content-Type': 'application/x-www-form-urlencoded'
-//                 }
-//             })
-//         res.status(200).json(callback.data)
-//     } catch (err) {
-//         res.status(500).json(err)
-//     }
-// })
+app.post('/api/callback', async (req, res) => {
+
+    const { txn_id, merchantref, amount, txn_status, hash_key } = req.body;
+
+    const tpcCode = process.env.TPC_CODE;
+    const secret = process.env.Secret;
+
+    const hash = crypto.createHash('sha256').update(tpcCode + merchantref + amount + txn_status, secret).digest('hex');
+    const data = {
+        txn_id,
+        merchantref,
+        amount,
+        txn_status,
+        hash_key: hash
+    }
+
+    initiateCallback(data)
+
+    function initiateCallback(data) {
+        const url = 'https://api.thepaymentconsultant.com/api/deposit/initiate';
+        const secret = 'your_secret';
+        const tpcCode = 'your_tpc_code';
+
+
+        // Create the request payload
+        const payload = JSON.stringify({
+            ...data,
+
+        });
+
+        const options = {
+            hostname: 'api.thepaymentconsultant.com',
+            path: '/api/deposit/initiate',
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let responseData = '';
+
+            res.on('data', (chunk) => {
+                responseData += chunk;
+            });
+
+            res.on('end', () => {
+                const response = JSON.parse(responseData);
+                console.log('Deposit initiation response:', response);
+            });
+        });
+
+        req.on('error', (error) => {
+            console.error('Error initiating deposit:', error);
+        });
+
+        req.write(payload);
+        req.end();
+    }
+
+    // Send a response if needed
+    res.status(200).json({ status: 'success' });
+})
 
 // Endpoint to check deposit payment status
 app.get('/deposit/status', (req, res) => {
@@ -208,21 +253,83 @@ app.get('/deposit/status', (req, res) => {
 
 
 app.post("/api/refund", async (req, res) => {
-    try {
-        const refund = await axios.post("https://api.thepaymentconsultant.com/api/deposit/refund", {
-            txn_id: contain.txn_id,
-            amount: contain.amount
-        }, {
-            headers: {
-                "Content-Type": "application/json"
-            }
-        })
-        res.status(200).json(refund.data)
-    } catch (err) {
-        res.status(500).json(err)
-    }
-})
 
+    const { fname, lname, phone, email, merchantref, txn_id, amount } = req.body;
+
+    const data = {
+        txn_id,
+        amount
+    }
+
+    initiateRefund(data)
+
+
+    // Function to generate TPC-HASH
+    function generateTPCHash(fname, lname, phone, email, merchantref, secret, tpcCode) {
+        const step1 = fname + lname + phone + email + merchantref;
+        const step2 = crypto.createHash('sha256').update(step1 + secret).digest('hex');
+        const step3 = crypto.createHmac('sha512', tpcCode).update(step2).digest('hex');
+        return step3;
+    }
+
+    // Function to initiate a deposit
+    function initiateRefund(data) {
+        const url = 'https://api.thepaymentconsultant.com/api/deposit/refund';
+        const secret = process.env.Secret;
+        const tpcCode = process.env.TPC_CODE;
+
+        // Generate TPC-HASH
+        const tpcHash = generateTPCHash(
+            fname,
+            lname,
+            phone,
+            email,
+            merchantref,
+            secret,
+            tpcCode
+        );
+
+        // Create the request payload
+        const payload = JSON.stringify({
+            ...data,
+            'TPC-CODE': tpcCode,
+            'TPC-HASH': tpcHash
+        });
+
+        const options = {
+            hostname: 'api.thepaymentconsultant.com',
+            path: '/api/deposit/refund',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let responseData = '';
+
+            res.on('data', (chunk) => {
+                responseData += chunk;
+            });
+
+            res.on('end', () => {
+                const response = JSON.parse(responseData);
+                console.log('Refund initiation response:', response);
+            });
+        });
+
+        req.on('error', (error) => {
+            console.error('Error initiating refund:', error);
+        });
+
+        req.write(payload);
+        req.end();
+    }
+
+    // Send a response if needed
+    res.status(200).json({ status: 'success' });
+})
 app.listen(port, () => {
     console.log(`Server listening on port ${port}`)
 })
